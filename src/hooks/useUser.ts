@@ -4,6 +4,7 @@ import organizationService from '../services/organization-service';
 import { CanceledError } from '../services/api-client';
 import { User } from '../models/User';
 import { Organization } from '../models/Organization';
+import activityService from '../services/activity-service';
 
 interface UseUsersReturn {
   users: User[];
@@ -16,17 +17,12 @@ interface UseUsersReturn {
   fetchUsers: () => void;
 }
 
-/**
- * Custom hook for managing CRUD operations on users
- * Handles loading, error states, and communication with user-service
- */
 export const useUser = (): UseUsersReturn => {
   const [users, setUsers] = useState<User[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch users and organizations on component mount
   useEffect(() => {
     fetchUsers();
     fetchOrganizations();
@@ -63,7 +59,6 @@ export const useUser = (): UseUsersReturn => {
   };
 
   const createUser = async (data: Omit<User, '_id'>) => {
-    // Optimistic update with temporary ID
     const tempUser: User = {
       _id: 'temp_' + Date.now(),
       ...data,
@@ -77,6 +72,7 @@ export const useUser = (): UseUsersReturn => {
       setUsers((prevUsers) =>
         prevUsers.map((u) => (u._id === tempUser._id ? savedUser : u))
       );
+      activityService.logActivity('CREATE', 'User', `Creat usuari: ${data.name}`);
     } catch (err) {
       setError((err as Error).message);
       setUsers(originalUsers);
@@ -90,6 +86,7 @@ export const useUser = (): UseUsersReturn => {
 
     try {
       await userService.update(user);
+      activityService.logActivity('UPDATE', 'User', `Editat usuari: ${user.name}`);
     } catch (err) {
       setError((err as Error).message);
       setUsers(originalUsers);
@@ -103,6 +100,8 @@ export const useUser = (): UseUsersReturn => {
 
     try {
       await userService.delete(userId);
+      const deletedUser = originalUsers.find((u) => u._id === userId);
+      activityService.logActivity('DELETE', 'User', `Eliminat usuari: ${deletedUser?.name ?? userId}`);
     } catch (err) {
       setError((err as Error).message);
       setUsers(originalUsers);

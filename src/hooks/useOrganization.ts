@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import organizationService from '../services/organization-service';
 import { CanceledError } from '../services/api-client';
 import { Organization } from '../models/Organization';
+import activityService from '../services/activity-service';
 
 interface UseOrganizationsReturn {
   organizations: Organization[];
@@ -13,16 +14,11 @@ interface UseOrganizationsReturn {
   fetchOrganizations: () => void;
 }
 
-/**
- * Custom hook for managing CRUD operations on organizations
- * Handles loading, error states, and communication with organization-service
- */
 export const useOrganization = (): UseOrganizationsReturn => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch organizations on component mount
   useEffect(() => {
     fetchOrganizations();
   }, []);
@@ -45,7 +41,6 @@ export const useOrganization = (): UseOrganizationsReturn => {
   };
 
   const createOrganization = async (data: Omit<Organization, '_id'>) => {
-    // Optimistic update with temporary ID
     const tempOrg: Organization = {
       _id: 'temp_' + Date.now(),
       ...data,
@@ -59,6 +54,7 @@ export const useOrganization = (): UseOrganizationsReturn => {
       setOrganizations((prevOrgs) =>
         prevOrgs.map((o) => (o._id === tempOrg._id ? savedOrg : o))
       );
+      activityService.logActivity('CREATE', 'Organization', `Creada organització: ${data.name}`);
     } catch (err) {
       setError((err as Error).message);
       setOrganizations(originalOrganizations);
@@ -74,6 +70,7 @@ export const useOrganization = (): UseOrganizationsReturn => {
 
     try {
       await organizationService.update(organization);
+      activityService.logActivity('UPDATE', 'Organization', `Editada organització: ${organization.name}`);
     } catch (err) {
       setError((err as Error).message);
       setOrganizations(originalOrganizations);
@@ -87,6 +84,8 @@ export const useOrganization = (): UseOrganizationsReturn => {
 
     try {
       await organizationService.delete(organizationId);
+      const deletedOrg = originalOrganizations.find((o) => o._id === organizationId);
+      activityService.logActivity('DELETE', 'Organization', `Eliminada organització: ${deletedOrg?.name ?? organizationId}`);
     } catch (err) {
       setError((err as Error).message);
       setOrganizations(originalOrganizations);
